@@ -1,0 +1,328 @@
+---
+title: "Kaggle: Graduate Admissions Dataset"
+author: "Kaveh Alemi"
+output: html_document
+---
+
+<br>
+
+```{r include=FALSE,message=FALSE, warning=FALSE}
+setwd("/Users/Kaveh/Desktop/")
+knitr::opts_chunk$set(fig.width=12, fig.height=8) 
+```
+
+
+# Libraries Used
+```{r message=FALSE, warning=FALSE}
+library(ggplot2)
+library(plyr)
+library(corrplot)
+library(rpart)
+library(rpart.plot)
+library(gridExtra)
+library(rattle)
+```
+
+<br>
+<br>
+
+# Importing Data 
+```{r}
+admit_data = read.csv(file = "Admission_Predict_Ver1.1.csv",header = TRUE, sep = ",")
+```
+
+<br>
+<br>
+
+# Exploratory Data Analysis
+Since the data is already provided for us and by making the assumption that it is already clean, we begin the Exploratory Data Analysis phase of the DSLC. In order to gain a better understanding of the parameters, we begin by investigating the relationships that exist between the parameters and the chance of admission, with university ratings excluded.
+
+<br>
+<br>
+
+## Correlation Analysis
+
+```{r message=FALSE, warning=FALSE}
+GRE = ggplot(admit_data,
+             aes(x=GRE.Score,y=Chance.of.Admit)) +
+             xlab("GRE Score") +
+             ylab("Chance of Admit") + 
+             geom_point(alpha = 0.5)
+
+GRE= GRE + geom_smooth(model = lm,col= "red")
+
+TOEFL = ggplot(admit_data,
+             aes(x=TOEFL.Score,y=Chance.of.Admit)) +
+             xlab("TOEFL Score") +
+             ylab("Chance of Admit") + 
+             geom_point(alpha = 0.5)
+
+TOEFL = TOEFL + geom_smooth(model = lm,col= "red")
+
+SOP = ggplot(admit_data,
+             aes(x=SOP,y=Chance.of.Admit)) +
+             xlab("SOP Score") +
+             ylab("Chance of Admit") + 
+             geom_point(alpha = 0.5)
+
+SOP = SOP + geom_smooth(model = lm,col= "red")
+
+LOR = ggplot(admit_data,
+             aes(x=LOR,y=Chance.of.Admit)) +
+             xlab("LOR Score") +
+             ylab("Chance of Admit") + 
+             geom_point(alpha = 0.5)
+
+LOR = LOR + geom_smooth(model = lm,col= "red")
+
+CGPA = ggplot(admit_data,
+             aes(x=CGPA,y=Chance.of.Admit)) +
+             xlab("CGPA Score") +
+             ylab("Chance of Admit") + 
+             geom_point(alpha = 0.5)
+
+CGPA = CGPA + geom_smooth(model = lm,col= "red")
+
+
+grid.arrange(GRE, TOEFL, SOP, LOR,CGPA)
+```
+
+
+<br>
+<br>
+
+By observing the above plots, it becomes evident that all of the parameters are linearly correlated with chance of admission. GRE, TOEFL, and CGPA have the strongest positive correlation among all of the parameters. Moreover, among these parameters,  CGPA has the strongest positive correlation with chance of admission, with an accompanying Pearson's Coefficient of 0.88. Furthermore, this can potentially demonstrate that CGPA is held at a higher priority for admissions across all five of the university ratings.
+
+<br>
+
+Let's now look further into research and chance of admission by first observing the frequency distribution of this parameter.
+
+```{r message=FALSE, warning=FALSE}
+qplot(admit_data$Research,
+      xlab="Research",
+      ylab="Frequency")
+
+count(admit_data,c("Research"))
+```
+
+The number of individuals that have participated in research is moderately close to those that do not have research experience, with a discrepancy of 60 counts. Let's now look further into the relationship that exists between research and chance of admission.
+
+<br>
+
+```{r}
+qplot(Research,
+      Chance.of.Admit,
+      data=admit_data,
+      xlab="Research",
+      ylab="Chance of Admit") + 
+      geom_point(colour="blue",alpha=0.6)
+```
+
+<br>
+
+```{r}
+no_research = subset(admit_data,admit_data$Research==1)
+max(no_research$Chance.of.Admit)
+
+yes_research = subset(admit_data,admit_data$Research==0)
+max(yes_research$Chance.of.Admit)
+```
+
+
+It can be observed that the highest chance of admission is achieved by an individual who has participated in research, however, there does not seem to be a major discrepancy between the above two values. Furthermore, this observation can possibly mean that research is not held at much of a high priority for admission regardless of the university rating.
+
+<br>
+<br>
+<br>
+
+## More Correlation Analysis
+
+```{r}
+admit_cor = cor(admit_data)
+
+corrplot(admit_cor, method="color",type="upper")
+```
+
+<br>
+
+By observing the above plot, it becomes evident that CGPA, GRE, and TOEFL share a strong linear correlation with the chance of admission. Moreover, SOP and LOR  share a moderately strong correlation with the chance of admission. Furthermore, research is the least correlated parameter with chance of admission amongst all of the parameters. It can also be seen that the chance of admission and university ratings are moderately correlated.
+
+<br>
+<br>
+<br>
+
+## Correlation Analysis Within University Ratings
+
+Let's look further into the university ratings and investigate any potential patterns that might be evident between the ratings and the mentioned parameters. Research will be excluded from this section given that this parameter shares not a siginificant amount of correlation with chance of admission.
+
+<br>
+
+```{r message=FALSE, warning=FALSE}
+ggplot(admit_data, aes(x=admit_data$GRE.Score,y=admit_data$Chance.of.Admit)) +
+       geom_point(alpha=0.50) +
+       facet_grid(admit_data$University.Rating~.) +
+       xlab("GRE Score") +
+       ylab("Chance of Admit")
+
+ggplot(admit_data, aes(x=admit_data$TOEFL.Score, y=admit_data$Chance.of.Admit)) +
+       geom_point(alpha=0.50) +
+       facet_grid(admit_data$University.Rating~.) +
+       xlab("TOEFL Score") +
+       ylab("Chance of Admit")
+
+ggplot(admit_data, aes(x=admit_data$SOP, y=admit_data$Chance.of.Admit)) +
+       geom_point(alpha=0.50) +
+       facet_grid(admit_data$University.Rating~.) +
+       xlab("SOP Strength") + 
+       ylab("Chance of Admit") 
+
+ggplot(admit_data, aes(x=admit_data$LOR, y=admit_data$Chance.of.Admit)) +
+       geom_point(alpha=0.50) +
+       facet_grid(admit_data$University.Rating~.) +
+       xlab("LOR Strength") +
+       ylab("Chance of Admit")
+
+ggplot(admit_data, aes(x=admit_data$CGPA, y=admit_data$Chance.of.Admit)) +
+       geom_point(alpha=0.50) +
+       facet_grid(admit_data$University.Rating~.) +
+       xlab("CGPA Score") +
+       ylab("Chance of Admit")
+```
+
+<br>
+
+Within the above plots, an underlying pattern can be observed where as university ratings decrease, the concentration of the parameters shift leftward, while the chance of admission remains approximately the same. This pattern is most evident within the CGPA plot. Furthermore, one reasoning for this pattern can be that individuals with higher value parameters apply to higher rated universities and as a result have a higher chance of admission. This reasoning can also apply to medium to low parameter values, where individuals with these values apply to medium and lower rated universities, respectively. 
+
+<br>
+<br>
+<br>
+
+## Prediction Model with Decision Trees
+
+Let us now create a model for predicting chance of admission within each university rating.
+
+<br>
+
+```{r message=FALSE, warning=FALSE}
+prediction_1 <- rpart(Chance.of.Admit ~  
+                       GRE.Score  + 
+                       TOEFL.Score + 
+                       SOP + 
+                       LOR + 
+                       CGPA + 
+                       Research,
+                      data = admit_data[admit_data$University.Rating == 1,],
+                      method="anova")
+
+rpart.plot(prediction_1,
+           box.palette = "auto",
+           main = "Rating 1")
+
+prediction_2 <- rpart(Chance.of.Admit ~  
+                       GRE.Score  + 
+                       TOEFL.Score + 
+                       SOP + 
+                       LOR + 
+                       CGPA + 
+                       Research,
+                      data = admit_data[admit_data$University.Rating == 2,],
+                      method="anova")
+
+rpart.plot(prediction_2,
+           box.palette = "auto",
+           main = "Rating 2")
+
+prediction_3 <- rpart(Chance.of.Admit ~  
+                       GRE.Score  + 
+                       TOEFL.Score + 
+                       SOP + 
+                       LOR + 
+                       CGPA + 
+                       Research,
+                      data = admit_data[admit_data$University.Rating == 3,],
+                      method="anova")
+
+rpart.plot(prediction_3,
+           box.palette = "auto",
+           main = "Rating 3")
+
+prediction_4 <- rpart(Chance.of.Admit ~  
+                       GRE.Score  + 
+                       TOEFL.Score + 
+                       SOP + 
+                       LOR + 
+                       CGPA + 
+                       Research,
+                      data = admit_data[admit_data$University.Rating == 4,],
+                      method="anova")
+
+rpart.plot(prediction_4,
+           box.palette = "auto",
+           main = "Rating 4")
+
+prediction_5 <- rpart(Chance.of.Admit ~  
+                       GRE.Score  + 
+                       TOEFL.Score + 
+                       SOP + 
+                       LOR + 
+                       CGPA + 
+                       Research,
+                      data = admit_data[admit_data$University.Rating == 5,],
+                      method="anova")
+
+rpart.plot(prediction_5,
+           box.palette = "auto",
+           main = "Rating 5")
+```
+
+<br>
+
+One primary observation from the prior correlation analysis section deemed CGPA to be strongly correlated with chances of admission, and possibly demonstrating that it is a crucial parameter for admission. Moreover, it can be seen from the above decision trees that CGPA presents itself to be the deciding factor for initial splits and other parameters such as GRE, LOR, and TOEFL are considered in later and final splits.
+
+<br>
+<br>
+<br>
+
+
+
+# Final Analysis and Conclusions
+
+<br>
+
+(1) A positive linear correlation exists between all of the parameters and the chance of admission. This entails that consideration to excel for a  given parameter should not decrease the chance of admission, with consideration that other parameter values do not decrease as a consequence.
+
+<br>
+
+(2) CGPA and chance of admission share the strongest linear correlation and are first to be considered in the decision tree model. This can potentially mean that it is held at a higher priority amongst the other parameters in the admissions process.
+
+<br>
+
+(3) Research does not seem to be held of high priority within the admissions process given that individuals with no research done still have a moderately high chance of acceptance for a university.
+
+<br>
+
+(4) With chances of admission kept relatively constant, the majority of parameters such as GRE, TOEFL, SOP, LOR, and CGPA decrease as university ratings decrease. This can potentially mean that higher rated universities only accept individuals with high parameters, and low rated universities are much more lenient on parameter values.
+
+<br>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
